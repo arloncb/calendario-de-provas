@@ -12,6 +12,23 @@ ID_PASTA_DRIVE = "1-87YcfvIWdBm-c6YyZcfBT_Ms-aX-SKt"
 SENHA_COORD = "coord123"
 SENHA_PROF = "prof123"
 
+# Lista Única e Oficial de Disciplinas em Ordem Alfabética
+LISTA_DISCIPLINAS = [
+    "Arte", 
+    "Biologia", 
+    "Ciências", 
+    "Ed. Física", 
+    "Filosofia", 
+    "Física", 
+    "Geografia", 
+    "História", 
+    "Língua Inglesa", 
+    "Língua Portuguesa", 
+    "Matemática", 
+    "Química", 
+    "Sociologia"
+]
+
 st.set_page_config(page_title="Calendário Escolar", layout="wide")
 
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -62,14 +79,7 @@ if perfil == "Coordenação" and acesso_liberado:
         with col1:
             bimestre = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
             turma = st.selectbox("Turma", ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", "1° A", "1° B", "2° A", "3° A"])
-            
-            # Disciplinas em Ordem Alfabética e "Arte" corrigido
-            lista_disciplinas = [
-                "Arte", "Biologia", "Ciências", "Ed. Física", "Filosofia", 
-                "Física", "Geografia", "História", "Inglês", 
-                "Matemática", "Português", "Química", "Sociologia"
-            ]
-            disciplina = st.selectbox("Disciplina", lista_disciplinas)
+            disciplina = st.selectbox("Disciplina", LISTA_DISCIPLINAS)
             
         with col2:
             data_p = st.date_input("Data", format="DD/MM/YYYY")
@@ -108,10 +118,13 @@ if perfil == "Coordenação" and acesso_liberado:
 elif perfil == "Professor" and acesso_liberado:
     st.header("👨‍🏫 Lançamento de Conteúdos")
     if not df.empty:
-        disc_p = st.selectbox("1. Sua Disciplina", ["Selecione..."] + sorted(df['Disciplina'].unique()))
+        # Professor agora escolhe a partir da lista oficial atualizada
+        disc_p = st.selectbox("1. Sua Disciplina", ["Selecione..."] + LISTA_DISCIPLINAS)
+        
         if disc_p != "Selecione...":
             pends = df[(df['Disciplina'] == disc_p) & (df['Status'] == 'Pendente')]
-            if pends.empty: st.info("Não há provas pendentes.")
+            if pends.empty:
+                st.info(f"Não há provas pendentes para {disc_p}. Verifique se o nome na planilha está atualizado.")
             else:
                 opts = {f"{row['Turma']} (Dia {row['Data']})": row['ID'] for _, row in pends.iterrows()}
                 id_sel = opts[st.selectbox("2. Selecione a Turma", list(opts.keys()))]
