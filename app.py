@@ -7,7 +7,7 @@ from datetime import datetime
 st.set_page_config(page_title="Calendário de Provas", layout="wide")
 
 # O link exato da sua planilha
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1gPhMASo7yOsn5HhvLw6_rGkYbSkcBB_xUsgN8QgzhWw/edit?gid=0#gid=0"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1gPhMASo7yOsn5HhvLw6_rGkYbSkcBB_xUsgN8QgzhWw/export?format=csv"
 
 # Conexão com o Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
