@@ -6,21 +6,19 @@ from datetime import datetime
 # 1. Configuração da Página
 st.set_page_config(page_title="Calendário de Provas", layout="wide")
 
-# 2. Conexão com o Google Sheets (Ele vai ler o link do Secrets)
+# 2. Conexão com o Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Função para ler os dados sempre atualizados
 def get_data():
     try:
-        # ttl=0 evita que o Streamlit use dados antigos guardados no cache
         return conn.read(ttl=0)
     except Exception as e:
-        st.error("Erro ao conectar com a planilha. Verifique os Secrets.")
+        st.error("Erro ao carregar dados. Verifique o compartilhamento da planilha.")
         return pd.DataFrame()
 
 st.title("📌 Portal do Calendário de Avaliações")
 
-# --- NAVEGAÇÃO LATERAL ---
+# --- NAVEGAÇÃO ---
 menu = st.sidebar.selectbox("Selecione seu Perfil", ["Pai/Aluno", "Coordenação", "Professor"])
 
 # --- ÁREA DA COORDENAÇÃO ---
@@ -34,39 +32,33 @@ if menu == "Coordenação":
         with col1:
             turmas_lista = ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", "1° A", "1° B", "2° A", "3° A"]
             turma = st.selectbox("Turma", turmas_lista)
-            
-            disciplinas_lista = ["Matemática", "Português", "História", "Geografia", "Ciências", "Inglês", "Física", "Química", "Biologia", "Sociologia", "Filosofia", "Ed. Física", "Artes"]
-            disciplina = st.selectbox("Disciplina", disciplinas_lista)
+            disciplina = st.selectbox("Disciplina", ["Matemática", "Português", "História", "Geografia", "Ciências", "Inglês", "Física", "Química", "Biologia", "Sociologia", "Filosofia", "Ed. Física", "Artes"])
         with col2:
             data_p = st.date_input("Data da Prova", format="DD/MM/YYYY")
             aula = st.multiselect("Aula(s)", ["1ª aula", "2ª aula", "3ª aula", "4ª aula", "5ª aula", "6ª aula"])
         
         if st.form_submit_button("Agendar Prova"):
-            if not aula:
-                st.warning("Por favor, selecione ao menos uma aula.")
-            else:
-                # Gerar ID novo
-                novo_id = int(df['ID'].max() + 1) if not df.empty and 'ID' in df.columns else 1
-                
-                nova_linha = pd.DataFrame([{
-                    "ID": novo_id, 
-                    "Bimestre": bimestre, 
-                    "Turma": turma, 
-                    "Disciplina": disciplina,
-                    "Data": data_p.strftime("%d-%m-%Y"), 
-                    "Aula": ", ".join(aula),
-                    "Conteudo": "Aguardando Professor...", 
-                    "Status": "Pendente"
-                }])
-                
-                df_atualizado = pd.concat([df, nova_linha], ignore_index=True)
-                # Salva na planilha usando a conexão oficial
-                conn.update(data=df_atualizado)
-                st.success(f"Prova de {disciplina} agendada!")
-                st.rerun()
+            # Garantir que o ID seja numérico e sequencial
+            proximo_id = int(df['ID'].max() + 1) if not df.empty and 'ID' in df.columns else 1
+            
+            nova_linha = pd.DataFrame([{
+                "ID": proximo_id, 
+                "Bimestre": bimestre, 
+                "Turma": turma, 
+                "Disciplina": disciplina,
+                "Data": data_p.strftime("%d-%m-%Y"), 
+                "Aula": ", ".join(aula),
+                "Conteudo": "Pendente", 
+                "Status": "Pendente"
+            }])
+            
+            df_atualizado = pd.concat([df, nova_linha], ignore_index=True)
+            conn.update(data=df_atualizado)
+            st.success("✅ Prova agendada com sucesso!")
+            st.rerun()
 
     st.divider()
-    st.subheader("Visualização da Planilha")
+    st.subheader("📋 Provas Registradas")
     st.dataframe(df, use_container_width=True)
 
 # --- ÁREA DO PROFESSOR ---
@@ -74,31 +66,34 @@ elif menu == "Professor":
     st.header("👨‍🏫 Espaço do Professor")
     df = get_data()
     
-    if df.empty or 'Status' not in df.columns or len(df[df['Status'] == 'Pendente']) == 0:
-        st.info("Não há provas pendentes de conteúdo.")
+    # Filtrar apenas o que está pendente
+    pendentes = df[df['Status'] == 'Pendente']
+    
+    if pendentes.empty:
+        st.info("Não há provas aguardando conteúdo no momento.")
     else:
-        provas_pendentes = df[df['Status'] == 'Pendente']
+        # Criamos um dicionário para o Selectbox mostrar um nome bonito mas guardar o ID
+        dict_provas = {
+            f"{row['Disciplina']} - {row['Turma']} (Dia {row['Data']})": row['ID'] 
+            for _, row in pendentes.iterrows()
+        }
         
-        # Criar uma lista amigável para o professor escolher a prova
-        opcoes_provas = provas_pendentes.apply(
-            lambda r: f"ID:{r['ID']} | {r['Disciplina']} - {r['Turma']} ({r['Data']})", axis=1
-        ).tolist()
+        escolha_texto = st.selectbox("Selecione a Prova para lançar o conteúdo:", list(dict_provas.keys()))
+        id_selecionado = dict_provas[escolha_texto]
         
-        escolha = st.selectbox("Selecione a Prova para preencher o conteúdo", opcoes_provas)
-        id_selecionado = int(escolha.split('|')[0].replace('ID:', '').strip())
+        conteudo = st.text_area("Digite o conteúdo da prova:", height=200, help="Capítulos, páginas, temas...")
         
-        conteudo = st.text_area("Digite o conteúdo da prova:", placeholder="Ex: Capítulos 1 a 3 do livro didático...")
-        
-        if st.button("Salvar Conteúdo"):
-            if conteudo:
-                # Localiza e atualiza a linha
+        if st.button("🚀 Salvar e Publicar para os Pais"):
+            if conteudo.strip() == "":
+                st.warning("O conteúdo não pode estar vazio.")
+            else:
+                # Localiza a linha pelo ID e atualiza
                 df.loc[df['ID'] == id_selecionado, 'Conteudo'] = conteudo
                 df.loc[df['ID'] == id_selecionado, 'Status'] = 'Concluído'
+                
                 conn.update(data=df)
-                st.success("Conteúdo salvo com sucesso!")
+                st.success("✅ Conteúdo salvo! Os pais já podem visualizar.")
                 st.rerun()
-            else:
-                st.warning("Por favor, digite o conteúdo antes de salvar.")
 
 # --- ÁREA DOS PAIS ---
 elif menu == "Pai/Aluno":
@@ -106,13 +101,14 @@ elif menu == "Pai/Aluno":
     df = get_data()
     
     if df.empty:
-        st.info("Nenhuma prova agendada ainda.")
+        st.info("O calendário ainda não possui provas agendadas.")
     else:
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            bim_f = st.selectbox("Bimestre", ["Todos", "1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-        with col_f2:
-            turma_f = st.selectbox("Sua Turma", ["Todas"] + sorted(list(df['Turma'].unique())))
+        col_a, col_b = st.columns(2)
+        with col_a:
+            bim_f = st.selectbox("Filtrar por Bimestre", ["Todos", "1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
+        with col_b:
+            turmas_existentes = sorted(df['Turma'].unique())
+            turma_f = st.selectbox("Filtrar por Turma", ["Todas"] + list(turmas_existentes))
         
         exibir = df.copy()
         if bim_f != "Todos":
@@ -121,11 +117,14 @@ elif menu == "Pai/Aluno":
             exibir = exibir[exibir['Turma'] == turma_f]
         
         if exibir.empty:
-            st.warning("Nenhuma prova encontrada para os filtros selecionados.")
+            st.warning("Nenhuma prova encontrada para este filtro.")
         else:
+            # Ordenar por data (opcional, mas ajuda)
             for _, row in exibir.iterrows():
-                cor_status = "🔵" if row['Status'] == 'Concluído' else "🟠"
-                with st.expander(f"{cor_status} {row['Data']} - {row['Disciplina']} ({row['Turma']})"):
+                emoji = "✅" if row['Status'] == 'Concluído' else "⏳"
+                with st.expander(f"{emoji} {row['Data']} - {row['Disciplina']} ({row['Turma']})"):
                     st.write(f"**Bimestre:** {row['Bimestre']}")
-                    st.write(f"**Aulas:** {row['Aula']}")
-                    st.info(f"**Conteúdo para estudar:**\n\n{row['Conteudo']}")
+                    st.write(f"**Horário:** {row['Aula']}")
+                    st.markdown("---")
+                    st.write("**Conteúdo para estudar:**")
+                    st.write(row['Conteudo'])
