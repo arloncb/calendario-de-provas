@@ -19,7 +19,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def get_data():
     try:
         df_lido = conn.read(ttl=0)
-        # Forçamos as colunas críticas a aceitarem qualquer tipo de texto para evitar o TypeError
         for col in ['Conteudo', 'Status', 'Link_Arquivo']:
             if col in df_lido.columns:
                 df_lido[col] = df_lido[col].astype(object)
@@ -63,7 +62,15 @@ if perfil == "Coordenação" and acesso_liberado:
         with col1:
             bimestre = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
             turma = st.selectbox("Turma", ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", "1° A", "1° B", "2° A", "3° A"])
-            disciplina = st.selectbox("Disciplina", ["Matemática", "Português", "História", "Geografia", "Ciências", "Inglês", "Física", "Química", "Biologia", "Sociologia", "Filosofia", "Ed. Física", "Arte"])
+            
+            # Disciplinas em Ordem Alfabética e "Arte" corrigido
+            lista_disciplinas = [
+                "Arte", "Biologia", "Ciências", "Ed. Física", "Filosofia", 
+                "Física", "Geografia", "História", "Inglês", 
+                "Matemática", "Português", "Química", "Sociologia"
+            ]
+            disciplina = st.selectbox("Disciplina", lista_disciplinas)
+            
         with col2:
             data_p = st.date_input("Data", format="DD/MM/YYYY")
             aula = st.multiselect("Aulas", [f"{i}ª aula" for i in range(1, 9)])
@@ -109,13 +116,12 @@ elif perfil == "Professor" and acesso_liberado:
                 opts = {f"{row['Turma']} (Dia {row['Data']})": row['ID'] for _, row in pends.iterrows()}
                 id_sel = opts[st.selectbox("2. Selecione a Turma", list(opts.keys()))]
                 with st.form("f_prof", clear_on_submit=True):
-                    cont = st.text_area("3. Conteúdo da prova")
+                    cont = st.text_area("3. Digite o conteúdo da prova")
                     arq = st.file_uploader("4. Upload da Prova (PDF)", type=["pdf"])
                     if st.form_submit_button("Salvar e Enviar"):
                         if cont and arq:
                             url = upload_to_drive(arq, f"Prova_{disc_p}_{id_sel}.pdf")
                             if url:
-                                # Forma mais robusta de atualizar para evitar o TypeError
                                 idx = df[df['ID'] == id_sel].index
                                 df.at[idx[0], 'Conteudo'] = str(cont)
                                 df.at[idx[0], 'Status'] = 'Concluído'
