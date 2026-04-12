@@ -132,7 +132,7 @@ elif perfil == "Professor" and acesso_liberado:
                 id_sel = opts[st.selectbox("2. Turma", list(opts.keys()))]
                 with st.form("f_prof", clear_on_submit=True):
                     cont = st.text_area("3. Conteúdo")
-                    arq = st.file_uploader("4. Upload PDF", type=["pdf"])
+                    arq = st.file_uploader("4. Faça Upload em PDF de sua prova para análise da coordenação", type=["pdf"])
                     if st.form_submit_button("Salvar e Enviar"):
                         if cont and arq:
                             url = upload_to_drive(arq, f"Prova_{disc_p}_{id_sel}.pdf")
