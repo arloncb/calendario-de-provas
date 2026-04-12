@@ -7,12 +7,13 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
 import io
 
-# --- CONFIGURAÇÕES ---
+# --- CONFIGURAÇÕES DE IDENTIDADE E ACESSO ---
+URL_LOGO = "Logo vermelho.png"
 ID_PASTA_DRIVE = "1-87YcfvIWdBm-c6YyZcfBT_Ms-aX-SKt"
 SENHA_COORD = "coord123"
 SENHA_PROF = "prof123"
 
-# Lista Oficial Atualizada
+# Lista Oficial Atualizada e em Ordem Alfabética
 LISTA_DISCIPLINAS = [
     "Arte", "Biologia", "Ciências", "Ed. Física", "Filosofia", 
     "Física", "Geografia", "História", "Língua Inglesa", 
@@ -21,11 +22,13 @@ LISTA_DISCIPLINAS = [
 
 st.set_page_config(page_title="Calendário Escolar", layout="wide")
 
+# --- CONEXÃO COM GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
     try:
         df_lido = conn.read(ttl=0)
+        # Força colunas de texto para evitar erros de tipo (TypeError)
         for col in ['Conteudo', 'Status', 'Link_Arquivo']:
             if col in df_lido.columns:
                 df_lido[col] = df_lido[col].astype(object)
@@ -33,6 +36,7 @@ def get_data():
     except:
         return pd.DataFrame()
 
+# --- FUNÇÃO DE UPLOAD PARA O DRIVE ---
 def upload_to_drive(file, filename):
     try:
         info = st.secrets["connections"]["gsheets"]
@@ -40,7 +44,12 @@ def upload_to_drive(file, filename):
         service = build('drive', 'v3', credentials=creds)
         file_metadata = {'name': filename, 'parents': [ID_PASTA_DRIVE]}
         media = MediaIoBaseUpload(io.BytesIO(file.getvalue()), mimetype='application/pdf', resumable=True)
-        file_drive = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink', supportsAllDrives=True).execute()
+        file_drive = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id, webViewLink',
+            supportsAllDrives=True
+        ).execute()
         return file_drive.get('webViewLink')
     except Exception as e:
         st.error(f"Erro no Drive: {e}")
@@ -48,20 +57,30 @@ def upload_to_drive(file, filename):
 
 df = get_data()
 
-st.title("📌 Portal do Calendário de Avaliações")
+# --- CABEÇALHO COM LOGO ---
+col_logo, col_tit = st.columns([1, 6])
+with col_logo:
+    try:
+        st.image(URL_LOGO, width=120)
+    except:
+        st.warning("Logo não encontrado")
+with col_tit:
+    st.title("Portal do Calendário de Avaliações")
+    st.write("Sistema Integrado de Gestão Pedagógica")
 
-st.sidebar.header("🔐 Acesso")
-perfil = st.sidebar.selectbox("Perfil", ["Pai/Aluno", "Coordenação", "Professor"])
+# --- BARRA LATERAL (LOGIN) ---
+st.sidebar.header("🔐 Acesso Restrito")
+perfil = st.sidebar.selectbox("Selecione seu Perfil", ["Pai/Aluno", "Coordenação", "Professor"])
 
 acesso_liberado = False
 if perfil in ["Coordenação", "Professor"]:
-    senha = st.sidebar.text_input("Senha", type="password")
+    senha = st.sidebar.text_input("Digite a senha", type="password")
     if (perfil == "Coordenação" and senha == SENHA_COORD) or (perfil == "Professor" and senha == SENHA_PROF):
         acesso_liberado = True
     elif senha != "":
-        st.sidebar.error("Senha incorreta")
+        st.sidebar.error("Senha incorreta!")
 
-# --- COORDENAÇÃO ---
+# --- ÁREA DA COORDENAÇÃO ---
 if perfil == "Coordenação" and acesso_liberado:
     st.header("🛠 Painel da Coordenação")
     
@@ -73,19 +92,19 @@ if perfil == "Coordenação" and acesso_liberado:
             turma = st.selectbox("Turma", ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", "1° A", "1° B", "2° A", "3° A"])
             disciplina = st.selectbox("Disciplina", LISTA_DISCIPLINAS)
         with col2:
-            data_p = st.date_input("Data", format="DD/MM/YYYY")
-            aula = st.multiselect("Aulas", [f"{i}ª aula" for i in range(1, 9)])
+            data_p = st.date_input("Data da Prova", format="DD/MM/YYYY")
+            aula = st.multiselect("Aulas (1ª a 8ª)", [f"{i}ª aula" for i in range(1, 9)])
             
-            # Validação de Fim de Semana (Sábado=5, Domingo=6)
+            # Bloqueio de Fim de Semana
             eh_fim_de_semana = data_p.weekday() >= 5
             if eh_fim_de_semana:
-                st.error("❌ Atenção: Sábados e Domingos não são permitidos.")
+                st.error("❌ Sábados e Domingos não são permitidos para avaliações.")
 
         if st.form_submit_button("Agendar Prova"):
             if eh_fim_de_semana:
-                st.error("Erro: Selecione um dia útil (Segunda a Sexta).")
+                st.error("Selecione um dia útil.")
             elif not aula:
-                st.error("Erro: Selecione pelo menos uma aula.")
+                st.error("Selecione pelo menos uma aula.")
             else:
                 prox_id = int(df['ID'].max() + 1) if not df.empty and 'ID' in df.columns else 1
                 nova = pd.DataFrame([{
@@ -94,8 +113,18 @@ if perfil == "Coordenação" and acesso_liberado:
                     "Conteudo": "Pendente", "Status": "Pendente", "Link_Arquivo": ""
                 }])
                 conn.update(data=pd.concat([df, nova], ignore_index=True))
-                st.success("Agendado com sucesso!")
+                st.success("✅ Prova agendada!")
                 st.rerun()
+
+    st.divider()
+    st.subheader("📂 Provas para Análise (Downloads)")
+    if not df.empty and "Link_Arquivo" in df.columns:
+        arquivos = df[df['Link_Arquivo'].notna() & (df['Link_Arquivo'] != "")]
+        if not arquivos.empty:
+            for _, row in arquivos.iterrows():
+                st.write(f"📄 **{row['Disciplina']} ({row['Turma']})**: [Baixar PDF]({row['Link_Arquivo']})")
+        else:
+            st.info("Aguardando envios dos professores.")
 
     st.divider()
     st.subheader("📅 Visão Mensal")
@@ -111,14 +140,13 @@ if perfil == "Coordenação" and acesso_liberado:
                 })
             except: continue
     
-    # Configuração completa para Português no calendário
     calendar(events=events, options={
         "locale": "pt-br",
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,dayGridWeek"},
         "buttonText": {"today": "Hoje", "month": "Mês", "week": "Semana"}
     })
 
-# --- PROFESSOR ---
+# --- ÁREA DO PROFESSOR ---
 elif perfil == "Professor" and acesso_liberado:
     st.header("👨‍🏫 Lançamento de Conteúdos")
     if not df.empty:
@@ -126,13 +154,14 @@ elif perfil == "Professor" and acesso_liberado:
         if disc_p != "Selecione...":
             pends = df[(df['Disciplina'] == disc_p) & (df['Status'] == 'Pendente')]
             if pends.empty:
-                st.info(f"Sem provas pendentes para {disc_p}.")
+                st.info(f"Não há pendências para {disc_p}.")
             else:
-                opts = {f"{row['Turma']} ({row['Data']})": row['ID'] for _, row in pends.iterrows()}
-                id_sel = opts[st.selectbox("2. Turma", list(opts.keys()))]
+                opts = {f"{row['Turma']} (Dia {row['Data']})": row['ID'] for _, row in pends.iterrows()}
+                id_sel = opts[st.selectbox("2. Selecione a Turma", list(opts.keys()))]
+                
                 with st.form("f_prof", clear_on_submit=True):
-                    cont = st.text_area("3. Conteúdo")
-                    arq = st.file_uploader("4. Faça Upload em PDF de sua prova para análise da coordenação", type=["pdf"])
+                    cont = st.text_area("3. Conteúdo Programático")
+                    arq = st.file_uploader("4. Anexar Prova em PDF", type=["pdf"])
                     if st.form_submit_button("Salvar e Enviar"):
                         if cont and arq:
                             url = upload_to_drive(arq, f"Prova_{disc_p}_{id_sel}.pdf")
@@ -142,19 +171,29 @@ elif perfil == "Professor" and acesso_liberado:
                                 df.at[idx[0], 'Status'] = 'Concluído'
                                 df.at[idx[0], 'Link_Arquivo'] = str(url)
                                 conn.update(data=df)
-                                st.success("Enviado!")
+                                st.success("✅ Publicado com sucesso!")
                                 st.rerun()
-                        else: st.error("Preencha todos os campos.")
+                        else:
+                            st.error("Preencha o conteúdo e anexe o arquivo.")
 
-# --- PAIS ---
+# --- ÁREA DOS PAIS/ALUNOS ---
 elif perfil == "Pai/Aluno":
-    st.header("📅 Consulta de Provas Bimestrais de seu Filho/filha")
+    st.header("📅 Consulta de Provas")
     if not df.empty:
-        t_f = st.selectbox("Escolha a Turma:", ["Selecione..."] + sorted(list(df['Turma'].unique())))
+        t_f = st.selectbox("Escolha a Turma do Aluno:", ["Selecione..."] + sorted(list(df['Turma'].unique())))
         if t_f != "Selecione...":
             exibir = df[df['Turma'] == t_f]
-            for _, r in exibir.iterrows():
-                status = "✅" if r['Status'] == 'Concluído' else "⏳"
-                with st.expander(f"{status} {r['Data']} - {r['Disciplina']}"):
-                    st.write(f"**Aulas:** {r['Aula']}")
-                    st.info(f"**Conteúdo:** {r['Conteudo']}")
+            if exibir.empty:
+                st.warning("Nenhuma avaliação encontrada.")
+            else:
+                for _, r in exibir.iterrows():
+                    status_icon = "✅" if r['Status'] == 'Concluído' else "⏳"
+                    with st.expander(f"{status_icon} {r['Data']} - {r['Disciplina']}"):
+                        st.write(f"**Bimestre:** {r['Bimestre']}")
+                        st.write(f"**Aula(s):** {r['Aula']}")
+                        st.info(f"**Conteúdo para Estudar:**\n\n{r['Conteudo']}")
+        else:
+            st.write("Selecione uma turma para visualizar o calendário.")
+
+else:
+    st.warning("⚠️ Selecione o perfil e insira a senha na barra lateral para acessar.")
