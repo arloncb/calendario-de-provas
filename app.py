@@ -148,7 +148,7 @@ elif perfil == "Professor" and acesso_liberado:
 
 # --- PAIS ---
 elif perfil == "Pai/Aluno":
-    st.header("📅 Consulta de Provas")
+    st.header("📅 Consulta de Provas Bimestrais de seu Filho/filha")
     if not df.empty:
         t_f = st.selectbox("Escolha a Turma:", ["Selecione..."] + sorted(list(df['Turma'].unique())))
         if t_f != "Selecione...":
