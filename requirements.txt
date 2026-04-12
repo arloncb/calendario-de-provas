@@ -3,3 +3,5 @@ pandas
 st-gsheets-connection
 gspread
 streamlit-calendar
+google-api-python-client
+google-auth
