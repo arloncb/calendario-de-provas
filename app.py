@@ -24,8 +24,8 @@ LISTA_DISCIPLINAS = [
     "Filosofia", 
     "Física", 
     "Geografia", 
-    "História"
-    "Leitura e Produção de Texto", 
+    "História", 
+    "Leitura e Produção de texto",
     "Letramento e raciocínio Matemático", 
     "Língua Inglesa", 
     "Língua Portuguesa", 
@@ -44,9 +44,9 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def get_data():
     try:
         df_lido = conn.read(ttl=0)
-        # Substitui valores nulos (NaN) por texto vazio para evitar erros de lógica
+        # Substitui valores nulos (NaN) por texto vazio
         df_lido = df_lido.fillna('')
-        # Força colunas de texto para evitar erros de tipo (TypeError)
+        # Força colunas de texto para evitar erros de tipo
         for col in ['Conteudo', 'Status', 'Link_Arquivo']:
             if col in df_lido.columns:
                 df_lido[col] = df_lido[col].astype(str)
@@ -124,7 +124,6 @@ if perfil == "Coordenação" and acesso_liberado:
             elif not aula:
                 st.error("Selecione pelo menos uma aula.")
             else:
-                # Lógica para gerar ID robusto
                 prox_id = int(pd.to_numeric(df['ID'], errors='coerce').max() + 1) if not df.empty and 'ID' in df.columns else 1
                 nova = pd.DataFrame([{
                     "ID": prox_id, "Bimestre": bimestre, "Turma": turma, "Disciplina": disciplina,
@@ -137,51 +136,3 @@ if perfil == "Coordenação" and acesso_liberado:
 
     st.divider()
     st.subheader("📂 Provas para Análise (Downloads)")
-    if not df.empty and "Link_Arquivo" in df.columns:
-        arquivos = df[(df['Link_Arquivo'].notna()) & (df['Link_Arquivo'] != "")]
-        if not arquivos.empty:
-            for _, row in arquivos.iterrows():
-                st.write(f"📄 **{row['Disciplina']} ({row['Turma']})**: [Baixar PDF]({row['Link_Arquivo']})")
-        else:
-            st.info("Aguardando envios dos professores.")
-
-    st.divider()
-    st.subheader("📅 Visão Mensal")
-    events = []
-    if not df.empty:
-        for _, r in df.iterrows():
-            try:
-                if r['Data']:
-                    d, m, y = r['Data'].split('-')
-                    events.append({
-                        "title": f"{r['Turma']}: {r['Disciplina']}", 
-                        "start": f"{y}-{m}-{d}", "end": f"{y}-{m}-{d}", 
-                        "color": "#3D5AFE" if r['Status'] == 'Concluído' else "#FF9100"
-                    })
-            except: continue
-    
-    calendar(events=events, options={
-        "locale": "pt-br",
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,dayGridWeek"},
-        "buttonText": {"today": "Hoje", "month": "Mês", "week": "Semana"}
-    })
-
-# --- ÁREA DO PROFESSOR ---
-elif perfil == "Professor" and acesso_liberado:
-    st.header("👨‍🏫 Lançamento de Conteúdos")
-    if not df.empty:
-        disc_p = st.selectbox("1. Sua Disciplina", ["Selecione..."] + LISTA_DISCIPLINAS)
-        if disc_p != "Selecione...":
-            pends = df[(df['Disciplina'] == disc_p) & (df['Status'] == 'Pendente')]
-            if pends.empty:
-                st.info(f"Não há pendências para {disc_p}.")
-            else:
-                opts = {f"{row['Turma']} (Dia {row['Data']})": row['ID'] for _, row in pends.iterrows()}
-                id_sel = opts[st.selectbox("2. Selecione a Turma", list(opts.keys()))]
-                
-                with st.form("f_prof", clear_on_submit=True):
-                    cont = st.text_area("3. Conteúdo Programático")
-                    arq = st.file_uploader("4. Anexar Prova em PDF", type=["pdf"])
-                    if st.form_submit_button("Salvar e Enviar"):
-                        if cont and arq:
-                            url = upload_to_drive
