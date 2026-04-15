@@ -24,7 +24,8 @@ LISTA_DISCIPLINAS = [
     "Filosofia", 
     "Física", 
     "Geografia", 
-    "História", 
+    "História"
+    "Leitura e Produção de Texto", 
     "Letramento e raciocínio Matemático", 
     "Língua Inglesa", 
     "Língua Portuguesa", 
