@@ -128,16 +128,30 @@ if perfil == "Coordenação" and acesso_liberado:
         arquivos = df[(df['Link_Arquivo'] != "") & (df['Link_Arquivo'] != "nan")]
         if not arquivos.empty:
             for _, row in arquivos.iterrows():
-                # Esta é a linha que costuma dar erro se for quebrada incorretamente:
                 st.write(f"📄 **{row['Disciplina']} ({row['Turma']})**: [Baixar PDF]({row['Link_Arquivo']})")
         else:
             st.info("Aguardando envios dos professores.")
 
     st.divider()
-    st.subheader("📅 Visão Mensal")
+    st.subheader("📅 Gestão Visual das Avaliações")
+    
+    col_f1, col_f2 = st.columns([2, 1])
+    with col_f1:
+        turmas_filtradas = st.multiselect(
+            "Filtrar por Turma (Deixe vazio para ver todas)", 
+            options=LISTA_TURMAS,
+            help="Selecione turmas específicas para limpar o visual do calendário."
+        )
+    with col_f2:
+        modo_visao = st.radio("Modo de Exibição", ["Calendário", "Lista (Agenda)"], horizontal=True)
+
     events = []
     if not df.empty:
-        for _, r in df.iterrows():
+        df_view = df.copy()
+        if turmas_filtradas:
+            df_view = df_view[df_view['Turma'].isin(turmas_filtradas)]
+
+        for _, r in df_view.iterrows():
             try:
                 data_str = str(r['Data']).replace('/', '-')
                 if '-' in data_str:
@@ -147,18 +161,24 @@ if perfil == "Coordenação" and acesso_liberado:
                         if len(y) == 2: y = f"20{y}"
                         cor_evento = "#3D5AFE" if r['Status'] == 'Concluído' else "#FF9100"
                         events.append({
-                            "title": f"{r['Turma']}: {r['Disciplina']}", 
+                            "title": f"[{r['Turma']}] {r['Disciplina']}", 
                             "start": f"{y}-{m}-{d}", 
                             "end": f"{y}-{m}-{d}", 
-                            "color": cor_evento
+                            "color": cor_evento,
+                            "allDay": True
                         })
             except: 
                 continue
     
+    visao_inicial = "dayGridMonth" if modo_visao == "Calendário" else "listMonth"
+
     calendar(events=events, options={
         "locale": "pt-br",
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,dayGridWeek"},
-        "buttonText": {"today": "Hoje", "month": "Mês", "week": "Semana"}
+        "initialView": visao_inicial,
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,listMonth"},
+        "buttonText": {"today": "Hoje", "month": "Mês", "list": "Agenda"},
+        "editable": False,
+        "navLinks": True
     })
 
 # --- ÁREA DO PROFESSOR ---
