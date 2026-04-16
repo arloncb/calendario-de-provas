@@ -13,27 +13,14 @@ ID_PASTA_DRIVE = "1-87YcfvIWdBm-c6YyZcfBT_Ms-aX-SKt"
 SENHA_COORD = "coord123"
 SENHA_PROF = "prof123"
 
-# Listas Oficiais (Organização e Padronização)
+# Listas Oficiais Padronizadas
 LISTA_DISCIPLINAS = [
-    "Arte", 
-    "Biologia", 
-    "Ciências", 
-    "Ciências da Natureza na Cont.", 
-    "Ciências Humanas e Sociedade", 
-    "Ed. Física", 
-    "Filosofia", 
-    "Física", 
-    "Geografia", 
-    "História", 
-    "Leitura e Produção de texto",
-    "Letramento e raciocínio Matemático", 
-    "Língua Inglesa", 
-    "Língua Portuguesa", 
-    "Literatura Arte Movimento", 
-    "Matemática", 
-    "Química", 
-    "Sociologia", 
-    "Tecnologia e Cidadania Digital"
+    "Arte", "Biologia", "Ciências", "Ciências da Natureza na Cont.", 
+    "Ciências Humanas e Sociedade", "Ed. Física", "Filosofia", "Física", 
+    "Geografia", "História", "Leitura e Produção de texto",
+    "Letramento e raciocínio Matemático", "Língua Inglesa", 
+    "Língua Portuguesa", "Literatura Arte Movimento", "Matemática", 
+    "Química", "Sociologia", "Tecnologia e Cidadania Digital"
 ]
 
 LISTA_TURMAS = [
@@ -57,7 +44,6 @@ def get_data():
     except:
         return pd.DataFrame()
 
-# --- FUNÇÃO DE UPLOAD PARA O DRIVE ---
 def upload_to_drive(file, filename):
     try:
         info = st.secrets["connections"]["gsheets"]
@@ -78,7 +64,7 @@ def upload_to_drive(file, filename):
 
 df = get_data()
 
-# --- CABEÇALHO COM LOGO ---
+# --- CABEÇALHO ---
 col_logo, col_tit = st.columns([1, 6])
 with col_logo:
     try:
@@ -87,4 +73,10 @@ with col_logo:
         st.warning("Logo não encontrado")
 with col_tit:
     st.title("Portal do Calendário de Avaliações")
-    st.write("
+    st.write("Sistema Integrado de Gestão Pedagógica")
+
+# --- BARRA LATERAL ---
+st.sidebar.header("🔐 Acesso Restrito")
+perfil = st.sidebar.selectbox("Selecione seu Perfil", ["Pai/Aluno", "Coordenação", "Professor"])
+
+acesso_lib
