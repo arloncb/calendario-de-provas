@@ -105,7 +105,7 @@ if perfil == "Coordenação" and acesso_liberado:
         col1, col2 = st.columns(2)
         with col1:
             bimestre = st.selectbox("Bimestre", ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"])
-            turma = st.selectbox("Turma", ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", "1° A", "1° B", "2° A", "3° A"])
+            turma = st.selectbox("Turma", ["4° A", "5° A", "6° A", "6° B", "6° C", "7° A", "8° A", "9° A", 9° B", "9° C", "9° D", "1° A", "1° B", "2° A", "3° A"])
             disciplina = st.selectbox("Disciplina", LISTA_DISCIPLINAS)
         with col2:
             data_p = st.date_input("Data da Prova", format="DD/MM/YYYY")
